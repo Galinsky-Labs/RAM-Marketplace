@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "repository": "neophilism/RAM-Marketplace",
+  "repository": "Galinsky-Labs/RAM-Marketplace",
   "kind": "web-app",
   "monitoring": {
     "mode": "inventory"
