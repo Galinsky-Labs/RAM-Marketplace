@@ -260,7 +260,9 @@ export const transportAssignmentSchema = z.object({
   deliveryWindowEnd: z.string().optional(),
   movementDocumentRefs: z.string().max(4000).optional(),
   sanitationRequirements: z.string().max(4000).optional(),
-  specialInstructions: z.string().max(4000).optional()
+  specialInstructions: z.string().max(4000).optional(),
+  originState: z.string().regex(/^[A-Za-z]{2}$/).transform((v) => v.toUpperCase()).optional(),
+  destinationState: z.string().regex(/^[A-Za-z]{2}$/).transform((v) => v.toUpperCase()).optional()
 }).superRefine((value, ctx) => {
   const pairs = [
     ["pickupWindowStart", value.pickupWindowStart, "pickupWindowEnd", value.pickupWindowEnd],

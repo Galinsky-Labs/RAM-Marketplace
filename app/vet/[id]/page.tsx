@@ -1,5 +1,7 @@
 import { requireSession } from "@/lib/auth/session";
 import { getVeterinaryCandidate } from "@/lib/server/clinical";
+import { dataBackend } from "@/lib/server/db";
+import { listDiagnosticReports } from "@/lib/server/diagnostics";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +13,7 @@ export default async function VeterinaryCandidatePage({
   const session = await requireSession();
   const { id } = await params;
   const candidate = await getVeterinaryCandidate(session, id);
+  const reports = dataBackend() === "postgres" ? await listDiagnosticReports(session, candidate.id) : [];
 
   return (
     <section className="page narrow">
@@ -104,6 +107,23 @@ export default async function VeterinaryCandidatePage({
           </section>
         </form>
       )}
+      <article className="panel">
+        <h2>Laboratory diagnostic reports</h2>
+        <p>Signed results from the integrated diagnostic laboratory. Reports are evidence for your review; they never change eligibility on their own.</p>
+        {reports.length === 0 ? <p>No laboratory reports received for this case.</p> : reports.map((report) => (
+          <div key={report.id} className="formStack">
+            <p><strong>{report.testName}</strong> ({report.testCode}) · {report.resultStatus} · {report.interpretation}
+              {" · "}{report.reviewFlag.replaceAll("_", " ")} · reported {report.reportedAt.toISOString().slice(0, 10)} · {report.provider}</p>
+            {report.acknowledgedAt ? <p>Acknowledged {report.acknowledgedAt.toISOString().slice(0, 16).replace("T", " ")} UTC: {report.acknowledgementNote}</p> : (
+              <form method="post" action="/api/vet/diagnostics" className="formActions">
+                <input type="hidden" name="id" value={report.id} />
+                <label>Acknowledgement note<input name="note" required minLength={5} maxLength={2000} /></label>
+                <button className="secondaryButton" type="submit">Acknowledge</button>
+              </form>
+            )}
+          </div>
+        ))}
+      </article>
     </section>
   );
 }

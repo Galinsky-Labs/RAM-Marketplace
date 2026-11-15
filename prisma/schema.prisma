@@ -425,6 +425,7 @@ model AnimalCase {
   disclosureRequests   DisclosureRequest[]
   orders               Order[]
   matches              ResearchMatch[]
+  diagnosticReports    DiagnosticReport[]
   createdAt            DateTime            @default(now())
   updatedAt            DateTime            @updatedAt
 
@@ -682,6 +683,13 @@ model TransportAssignment {
   movementDocumentRefs    Json?
   sanitationRequirements  String?
   specialInstructions     String?
+  originState             String?
+  destinationState        String?
+  corridorDecision        String?
+  corridorEnforced        Boolean      @default(false)
+  corridorRuleId          String?
+  corridorRuleRevision    Int?
+  corridorRuleDigest      String?
   assignedAt              DateTime     @default(now())
   order                   Order        @relation(fields: [orderId], references: [id])
   transportOrganization   Organization @relation("TransportOrganizationAssignments", fields: [transportOrganizationId], references: [id])
@@ -1001,6 +1009,10 @@ model SupplierBatchImport {
   state          String       @default("QUARANTINED")
   rows           Json
   createdById    String
+  reviewedById   String?
+  reviewedAt     DateTime?
+  reviewNote     String?
+  promotedCaseIds Json?
   createdAt      DateTime     @default(now())
   organization   Organization @relation(fields: [organizationId], references: [id])
   createdBy      User         @relation(fields: [createdById], references: [id])
@@ -1041,4 +1053,51 @@ model OrganizationApiKey {
   createdBy      User         @relation(fields: [createdById], references: [id])
 
   @@index([organizationId, createdAt])
+}
+
+model DiagnosticReport {
+  id                  String     @id @default(cuid())
+  provider            String
+  externalReportId    String
+  animalCaseId        String
+  testCode            String
+  testName            String
+  resultStatus        String
+  interpretation      String
+  reportable          Boolean    @default(false)
+  reviewFlag          String
+  reportedAt          DateTime
+  specimenCollectedAt DateTime?
+  payload             Json
+  payloadHash         String
+  receivedAt          DateTime   @default(now())
+  acknowledgedById    String?
+  acknowledgedAt      DateTime?
+  acknowledgementNote String?
+  animalCase          AnimalCase @relation(fields: [animalCaseId], references: [publicId])
+
+  @@unique([provider, externalReportId])
+  @@index([animalCaseId, reportedAt])
+  @@index([reviewFlag, acknowledgedAt])
+}
+
+model PaymentReconciliationRun {
+  id                     String   @id @default(cuid())
+  provider               String
+  periodStart            DateTime
+  periodEnd              DateTime
+  statementHash          String
+  lineCount              Int
+  executionCount         Int
+  matched                Int
+  discrepancyCount       Int
+  ramSucceededCents      Int
+  providerSucceededCents Int
+  reconciled             Boolean
+  discrepancies          Json
+  createdById            String
+  createdAt              DateTime @default(now())
+
+  @@unique([provider, statementHash])
+  @@index([provider, periodStart])
 }

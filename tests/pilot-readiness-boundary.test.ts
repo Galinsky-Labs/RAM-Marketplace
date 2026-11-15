@@ -11,7 +11,8 @@ const env = {
   RAM_MONITORING_ALERT_WEBHOOK_SECRET: "synthetic-alert-" + "s".repeat(32), RAM_MONITORING_ENABLED: "true",
   RAM_IDENTITY_ALLOWED_PROVIDERS: "fixture-oidc", RAM_IDENTITY_LOGIN_URL: "https://identity.example.test/login?flow=pilot",
   RAM_PAYMENT_GATEWAY_NAME: "fixture", RAM_PAYMENT_GATEWAY_URL: "https://payments.example.test/v1",
-  RAM_MONITORING_ALERT_WEBHOOK_URL: "https://alerts.example.test/ram", RAM_IDENTITY_REQUIRE_MFA: "true"
+  RAM_MONITORING_ALERT_WEBHOOK_URL: "https://alerts.example.test/ram", RAM_IDENTITY_REQUIRE_MFA: "true",
+  RAM_CORRIDOR_RULES_ENFORCED: "true"
 };
 const endpoints = [ ["RAM_IDENTITY_LOGIN_URL", "identity_login_url"], ["RAM_PAYMENT_GATEWAY_URL", "payment_gateway_url"],
   ["RAM_MONITORING_ALERT_WEBHOOK_URL", "monitoring_alert_url"] ] as const;

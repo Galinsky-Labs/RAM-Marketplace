@@ -12,6 +12,8 @@ import type {
   TransportEventInput
 } from "@/lib/validation";
 import { dataBackend, requirePrisma } from "@/lib/server/db";
+import { applyCorridorGate, corridorEnforced } from "@/lib/transport-corridor";
+import { decideCorridor } from "@/lib/server/compliance-rules";
 import {
   getPrototypeAnimal,
   getPrototypeOrder,
@@ -194,11 +196,32 @@ export async function assignTransport(
       select: {
         id: true,
         status: true,
-        transportAssignment: { select: { id: true } }
+        transportAssignment: { select: { id: true } },
+        animalCase: { select: { species: true, condition: true } }
       }
     });
     if (!order) throw new Error("Order not found");
     assertTransportAssignmentEligible(order.status);
+
+    // Transport corridor gate: deny-by-default against published compliance
+    // rules. Enforced when RAM_CORRIDOR_RULES_ENFORCED=true (required for a
+    // real pilot); otherwise the decision is recorded for audit only.
+    const movementDate = (dateOrNull(input.pickupWindowStart) ?? new Date()).toISOString().slice(0, 10);
+    const decision = input.originState && input.destinationState
+      ? await decideCorridor({
+          originState: input.originState,
+          destinationState: input.destinationState,
+          species: order.animalCase.species,
+          conditionFamily: order.animalCase.condition,
+          onDate: movementDate
+        })
+      : null;
+    const corridor = applyCorridorGate({
+      enforced: corridorEnforced(),
+      originState: input.originState,
+      destinationState: input.destinationState,
+      decision
+    });
     if (order.transportAssignment) {
       throw new Error("Order already has a transport assignment");
     }
@@ -245,6 +268,7 @@ export async function assignTransport(
         movementDocumentRefs: lines(input.movementDocumentRefs),
         sanitationRequirements: input.sanitationRequirements ?? null,
         specialInstructions: input.specialInstructions ?? null,
+        ...corridor,
         events: {
           create: {
             actorUserId: principal.userId,
@@ -267,7 +291,7 @@ export async function assignTransport(
         entityId: order.id,
         previousState: { status: order.status },
         nextState: { status: order.status, transportAssignmentId: created.id },
-        metadata: { transportOrganizationId: organization.id }
+        metadata: { transportOrganizationId: organization.id, corridor: { ...corridor } }
       }
     });
 
