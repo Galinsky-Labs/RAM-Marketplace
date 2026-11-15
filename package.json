@@ -33,7 +33,9 @@
     "e2e:oidc": "tsx scripts/oidc-lifecycle-e2e.ts",
     "identity:fake-oidc": "node scripts/fake-oidc-provider.mjs",
     "db:seed:demo": "tsx scripts/seed-e2e-postgres.ts",
-    "e2e:scale": "tsx scripts/scale-lifecycle-e2e.ts"
+    "e2e:scale": "tsx scripts/scale-lifecycle-e2e.ts",
+    "e2e:stripe": "tsx scripts/stripe-lifecycle-e2e.ts",
+    "payments:fake-stripe": "node scripts/fake-stripe-api.mjs"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.0.0",

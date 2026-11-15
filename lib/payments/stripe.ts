@@ -77,7 +77,7 @@ export function buildStripeRequest(instruction: PaymentGatewayInstruction): Stri
   const ref = instruction.accountReference;
   switch (instruction.type) {
     case "BUYER_COLLECTION": {
-      const match = /^(cus_[A-Za-z0-9]+):(pm_[A-Za-z0-9]+)$/.exec(ref);
+      const match = /^(cus_[A-Za-z0-9_]+):(pm_[A-Za-z0-9_]+)$/.exec(ref);
       if (!match) throw new Error("Buyer collection requires a 'cus_...:pm_...' account reference");
       params.set("amount", String(instruction.amountCents));
       params.set("currency", currency);

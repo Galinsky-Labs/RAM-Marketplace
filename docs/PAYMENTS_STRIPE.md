@@ -22,3 +22,13 @@ Webhook: register `https://<host>/api/payments/stripe/webhook` for `payment_inte
 
 Reconciliation: export the Stripe balance/payments report for a period into the statement JSON on `/finance/reconciliation` (provider `stripe`).
 Pilot readiness: Stripe in test mode is reported as BLOCK for a real pilot (`payment_stripe`). Tests: `tests/stripe-adapter.test.ts` (no live Stripe calls were made; no keys were available).
+
+## End-to-end test against a mocked Stripe API
+`scripts/fake-stripe-api.mjs` mocks `POST /v1/payment_intents`, `/v1/transfers` and `/v1/refunds`. It checks the Bearer `sk_test_` key, form encoding, required params and Idempotency-Key replay/conflict. It returns Stripe-shaped objects, the `card_error` envelope for declines (402) and `invalid_request_error` envelopes. `npm run e2e:stripe` (CI step "Stripe adapter E2E", second app instance with only `RAM_STRIPE_*` configured) covers:
+- PaymentIntent and Connect transfer request shapes, including the RAM idempotency key, metadata and Stripe-Version.
+- Webhooks signed exactly like Stripe, which settle into the ledger.
+- Rejection of bad signatures and amount-mismatched events.
+- Unrelated event types are acknowledged and ignored.
+- A card decline is recorded as `FAILED/card_declined`, with no ledger entry.
+
+`RAM_STRIPE_API_BASE` only accepts loopback URLs with test keys, so it cannot redirect live traffic.

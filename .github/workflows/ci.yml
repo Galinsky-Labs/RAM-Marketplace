@@ -121,6 +121,23 @@ jobs:
           npm run e2e:phase3
           npm run e2e:oidc
           npm run e2e:scale
+      - name: Stripe adapter E2E against a mocked Stripe API
+        env:
+          RAM_PAYMENT_GATEWAY_NAME: ""
+          RAM_PAYMENT_GATEWAY_URL: ""
+          RAM_PAYMENT_GATEWAY_SECRET: ""
+          RAM_STRIPE_SECRET_KEY: sk_test_ciFakeStripeKey000000000000
+          RAM_STRIPE_WEBHOOK_SECRET: whsec_ciFakeStripeWebhookSecret00000000
+          RAM_STRIPE_API_BASE: http://127.0.0.1:4122
+          RAM_STRIPE_E2E_BASE_URL: http://127.0.0.1:3119
+        run: |
+          npm run payments:fake-stripe > /tmp/ram-fake-stripe.log 2>&1 &
+          stripe_pid=$!
+          npm run start -- --hostname 127.0.0.1 --port 3119 > /tmp/ram-stripe-e2e.log 2>&1 &
+          server_pid=$!
+          trap 'cat /tmp/ram-stripe-e2e.log; cat /tmp/ram-fake-stripe.log; kill "$server_pid" "$stripe_pid" 2>/dev/null || true' EXIT
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:3119/api/health/live >/dev/null && break; sleep 1; done
+          npm run e2e:stripe
       - name: Verify PostgreSQL dump and restore
         env:
           PGPASSWORD: postgres
