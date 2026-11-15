@@ -30,7 +30,12 @@ export default async function FarmPage() {
           <h1>Your animal cases</h1>
           <p>Your farm identity is never presented as a public seller profile.</p>
         </div>
-        <Link className="primaryButton" href="/farm/new">Report an animal</Link>
+        <div className="formActions">
+          {session.role === "SUPPLIER_OWNER_ADMIN" && backend === "postgres" && (
+            <Link className="secondaryButton" href="/farm/api-keys">API keys</Link>
+          )}
+          <Link className="primaryButton" href="/farm/new">Report an animal</Link>
+        </div>
       </div>
 
       <div className="privacyBanner">

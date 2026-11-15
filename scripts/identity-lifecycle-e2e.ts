@@ -309,6 +309,111 @@ try {
     fail("Organization approval record was not persisted");
   }
 
+
+  // Draft-only compliance authoring: durable CAS revisions, tenant role denial and audit evidence.
+  const draftInput = {
+    ruleId: "ci-synthetic-rule-versioning",
+    originState: "AA",
+    destinationState: "BB",
+    species: "Swine",
+    conditionFamily: "Synthetic fixture",
+    prohibited: true,
+    rationale: "CI test only; not operational authorization",
+    sourceReferences: ["ci-synthetic-reference"],
+    effectiveFrom: "2026-01-01",
+    effectiveUntil: "2026-12-31",
+    authorId: "demo-ram-user"
+  };
+  async function saveDraft(cookie: string, input: typeof draftInput, expectedDigest?: string) {
+    return fetch(base + "/api/ops/compliance/rules/drafts", {
+      method: "POST",
+      headers: { Origin: base, Cookie: cookie, "Content-Type": "application/json" },
+      body: JSON.stringify({ input, expectedDigest })
+    });
+  }
+  const forbiddenDraft = await saveDraft(scientistCookie, draftInput);
+  expectStatus(forbiddenDraft, 403, "non-RAM author rejected");
+  const firstDraftResponse = await saveDraft(ramCookie, draftInput);
+  expectStatus(firstDraftResponse, 201, "first compliance rule draft");
+  const firstDraft = (await firstDraftResponse.json()).draft as { revision: number; digest: string; status: string };
+  if (firstDraft.revision !== 1 || firstDraft.status !== "DRAFT") fail("First compliance rule must be a nonactive draft");
+  const nextDraftResponse = await saveDraft(ramCookie, { ...draftInput, rationale: "Updated CI review text" }, firstDraft.digest);
+  expectStatus(nextDraftResponse, 201, "second compliance rule draft");
+  const nextDraft = (await nextDraftResponse.json()).draft as { revision: number; digest: string; status: string };
+  if (nextDraft.revision !== 2 || nextDraft.status !== "DRAFT") fail("Revision must remain DRAFT");
+  expectStatus(await saveDraft(ramCookie, draftInput, firstDraft.digest), 400, "stale digest cannot overwrite");
+  const persisted = await prisma.complianceRuleDraftRevision.findMany({
+    where: { ruleId: draftInput.ruleId }, orderBy: { revision: "asc" }
+  });
+  if (persisted.length !== 2 || persisted[0].digest !== firstDraft.digest ||
+      persisted[1].digest !== nextDraft.digest) fail("Draft revision ledger is not append-only");
+  const auditCount = await prisma.auditEvent.count({
+    where: { entityType: "ComplianceRuleDraftRevision", entityId: draftInput.ruleId }
+  });
+  if (auditCount !== 2) fail("Each committed draft revision must have atomic audit evidence");
+
+  // Rule publication: two-person rule and deny-by-default corridor evaluation.
+  async function demoCookie(actor: string) {
+    const response = await post("/api/session/demo", { actor });
+    expectStatus(response, 303, actor + " demo login");
+    return cookieNamed(response, "ram_session");
+  }
+  async function publish(cookie: string, revision: number, digest: string) {
+    return fetch(base + "/api/ops/compliance/rules/publications", {
+      method: "POST",
+      headers: { Origin: base, Cookie: cookie, "Content-Type": "application/json" },
+      body: JSON.stringify({ ruleId: draftInput.ruleId, revision, digest })
+    });
+  }
+  const complianceCookie = await demoCookie("compliance");
+  expectStatus(await publish(ramCookie, nextDraft.revision, nextDraft.digest), 403, "author cannot self-publish");
+  expectStatus(await publish(complianceCookie, nextDraft.revision, firstDraft.digest), 409, "stale digest cannot publish");
+  expectStatus(await publish(scientistCookie, nextDraft.revision, nextDraft.digest), 403, "non-RAM cannot publish");
+  expectStatus(await publish(complianceCookie, nextDraft.revision, nextDraft.digest), 201, "second reviewer publishes");
+  expectStatus(await publish(complianceCookie, firstDraft.revision, firstDraft.digest), 409, "older revision cannot replace newer");
+  const publications = await prisma.complianceRulePublication.findMany({ where: { ruleId: draftInput.ruleId } });
+  if (publications.length !== 1 || publications[0].revision !== 2 || publications[0].publishedById === publications[0].authorUserId) {
+    fail("Rule publication ledger must hold one second-reviewer publication");
+  }
+
+  // Enterprise API keys: organization-scoped, hashed, revocable, CSRF-independent.
+  const farmerCookie = await demoCookie("farmer");
+  const keyResponse = await fetch(base + "/api/farm/api-keys", {
+    method: "POST",
+    headers: { Origin: base, Cookie: farmerCookie, "Content-Type": "application/json" },
+    body: JSON.stringify({ name: "ci-herd-system", scopes: ["supplier-batch:write", "supplier-batch:read"], ttlDays: 7 })
+  });
+  expectStatus(keyResponse, 201, "farm admin creates API key");
+  const apiKey = (await keyResponse.json()).key as { id: string; token: string; prefix: string };
+  const storedKey = await prisma.organizationApiKey.findUnique({ where: { id: apiKey.id } });
+  if (!storedKey || storedKey.keyHash === apiKey.token || storedKey.keyHash.includes(apiKey.token)) {
+    fail("API key plaintext must not be stored");
+  }
+  const batchBody = JSON.stringify({ batchKey: "ci-api-batch-0001", rows: [] });
+  const emptyBatch = await fetch(base + "/api/farm/batch/import", {
+    method: "POST", headers: { Authorization: "Bearer " + apiKey.token, "Content-Type": "application/json" }, body: batchBody
+  });
+  expectStatus(emptyBatch, 400, "API key reaches batch validation without browser origin");
+  const readBatch = await fetch(base + "/api/farm/batch/import?batchKey=ci-api-batch-0001", {
+    headers: { Authorization: "Bearer " + apiKey.token }
+  });
+  expectStatus(readBatch, 200, "API key reads batch status");
+  const forgedKey = apiKey.token.slice(0, -4) + (apiKey.token.endsWith("AAAA") ? "BBBB" : "AAAA");
+  expectStatus(await fetch(base + "/api/farm/batch/import?batchKey=ci-api-batch-0001", {
+    headers: { Authorization: "Bearer " + forgedKey }
+  }), 401, "forged API key rejected");
+  expectStatus(await fetch(base + "/api/farm/api-keys?id=" + apiKey.id, {
+    method: "DELETE", headers: { Origin: base, Cookie: farmerCookie }
+  }), 200, "farm admin revokes API key");
+  expectStatus(await fetch(base + "/api/farm/batch/import?batchKey=ci-api-batch-0001", {
+    headers: { Authorization: "Bearer " + apiKey.token }
+  }), 401, "revoked API key rejected");
+  expectStatus(await fetch(base + "/api/farm/api-keys", {
+    method: "POST",
+    headers: { Origin: base, Cookie: scientistCookie, "Content-Type": "application/json" },
+    body: JSON.stringify({ name: "should-fail", scopes: ["supplier-batch:write"] })
+  }), 403, "non-supplier cannot mint API keys");
+
   console.log(
     "RAM identity lifecycle E2E passed: signed login, replay prevention, membership revocation, organization suspension, verified onboarding and approval."
   );

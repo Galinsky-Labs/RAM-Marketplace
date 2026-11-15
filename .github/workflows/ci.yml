@@ -39,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16
+        image: postgres:17
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -113,11 +113,15 @@ jobs:
         env:
           PGPASSWORD: postgres
         run: |
-          pg_dump -h 127.0.0.1 -U postgres -d ram_marketplace --format=custom --no-owner --no-acl --file=/tmp/ram-marketplace.dump
-          createdb -h 127.0.0.1 -U postgres ram_restore
-          pg_restore -h 127.0.0.1 -U postgres -d ram_restore --no-owner --no-acl /tmp/ram-marketplace.dump
+          # Use the service container's own client binaries so dump/restore
+          # versions always match the server (the runner's newer pg_dump emits
+          # settings such as transaction_timeout that older servers reject).
+          cid="${{ job.services.postgres.id }}"
+          docker exec "$cid" pg_dump -U postgres -d ram_marketplace --format=custom --no-owner --no-acl --file=/tmp/ram-marketplace.dump
+          docker exec "$cid" createdb -U postgres ram_restore
+          docker exec "$cid" pg_restore -U postgres -d ram_restore --no-owner --no-acl --exit-on-error /tmp/ram-marketplace.dump
 
-          for table in Organization User Membership ExternalIdentity IdentityAssertionUse OrganizationVerification OrganizationPaymentProfile AnimalCase ResearchNeed Order FinancialSettlement FinancialLedgerEntry PaymentExecution PaymentWebhookReceipt OperationalIncident MonitoringRun AlertDelivery PilotGateVerification AuditEvent; do
+          for table in Organization User Membership ExternalIdentity IdentityAssertionUse OrganizationVerification OrganizationPaymentProfile AnimalCase ResearchNeed Order FinancialSettlement FinancialLedgerEntry PaymentExecution PaymentWebhookReceipt OperationalIncident MonitoringRun AlertDelivery PilotGateVerification ComplianceRuleDraftRevision ComplianceRulePublication OrganizationApiKey SupplierBatchImport AuditEvent; do
             source_count=$(psql -h 127.0.0.1 -U postgres -d ram_marketplace -Atc "SELECT count(*) FROM \"$table\";")
             restore_count=$(psql -h 127.0.0.1 -U postgres -d ram_restore -Atc "SELECT count(*) FROM \"$table\";")
             test "$source_count" = "$restore_count"
