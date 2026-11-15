@@ -11,7 +11,7 @@
   "scopeNote": "Five phase-level delivery milestones are documented; this is not a verified per-PR breakdown. Do not call five a verified raw PR count.",
   "schemaVersion": 1,
   "roadmapVersion": 1,
-  "observedAt": "2026-11-15T19:02:09.000Z",
+  "observedAt": "2026-11-15T19:27:37.000Z",
   "units": [
     {
       "id": "RAM-01",
@@ -94,7 +94,8 @@
         "Accountable pilot gate verifications recorded in /ops/pilot"
       ],
       "contributingPrs": [
-        32
+        32,
+        36
       ],
       "mappingEvidence": "Pilot software merged: gate/readiness/smoke/monitoring hardening (#30); producer feed import and RAM promotion, signed diagnostics intake, deny-by-default transport corridor decisions, payment reconciliation (#31); Stripe adapter and in-process monitoring (#32, contributing). Software evidence only; no operating pilot."
     },
@@ -102,20 +103,89 @@
       "id": "RAM-05",
       "title": "Phase 4 \u2014 Scale-ready",
       "origin": "original",
-      "prs": [],
+      "prs": [
+        28,
+        35
+      ],
       "dependsOn": [
         "RAM-04"
       ],
       "externalDependencies": [],
-      "externalPrerequisites": [],
-      "contributingPrs": [
-        28,
-        32
+      "externalPrerequisites": [
+        "Signed per-state legal/veterinary decision referenced by each jurisdiction activation (P0-01/P0-05)",
+        "Bovine veterinary, disease-movement and transport protocols before promoting the species from GROUNDWORK to PILOT",
+        "Real research buyer procurement policy and purchase-order workflow confirmed with an institution",
+        "Enterprise identity provider and API consumer onboarding with a real organization",
+        "Operational shadow evaluation of matching v2 on consented pilot data"
       ],
-      "mappingEvidence": "Partial Phase 4 software: versioned rule drafts with two-person publication, enterprise API keys, supplier batch import, matching v2 offline evaluation (#28); standards-based OIDC SSO (#32). Procurement flows, multi-state activation and second species groundwork not implemented."
+      "contributingPrs": [
+        32,
+        36
+      ],
+      "mappingEvidence": "Phase 4 software merged: versioned rules with two-person publication, enterprise API keys, supplier batch import, matching v2 offline evaluation (#28); institutional procurement, two-person multi-state activation, species catalog with bovine groundwork (#35); OIDC SSO (#32) and Stripe E2E (#36) contributing. Software evidence only; activation of states and a second species requires the external decisions listed."
     }
   ],
   "pullRequests": [
+    {
+      "id": 5326286801,
+      "number": 36,
+      "title": "Stripe adapter E2E against a mocked Stripe API",
+      "url": "https://github.com/Galinsky-Labs/RAM-Marketplace/pull/36",
+      "state": "closed",
+      "draft": false,
+      "createdAt": "2026-11-15T19:24:32.000Z",
+      "updatedAt": "2026-11-15T19:27:18.000Z",
+      "closedAt": "2026-11-15T19:27:18.000Z",
+      "mergedAt": "2026-11-15T19:27:18.000Z",
+      "headSha": "de6da890d45e703175271bd163619d8208c75eaf",
+      "baseRef": "main",
+      "mergeCommitSha": "f7425634d24c0af9513d40e7ecf9868ea7e01fe4"
+    },
+    {
+      "id": 5326254771,
+      "number": 35,
+      "title": "RAM-05: procurement flows, multi-state activation, second-species groundwork",
+      "url": "https://github.com/Galinsky-Labs/RAM-Marketplace/pull/35",
+      "state": "closed",
+      "draft": false,
+      "createdAt": "2026-11-15T19:21:07.000Z",
+      "updatedAt": "2026-11-15T19:24:28.000Z",
+      "closedAt": "2026-11-15T19:24:28.000Z",
+      "mergedAt": "2026-11-15T19:24:28.000Z",
+      "headSha": "8ff8b4b40e1f762cea299c9986ea77ba510bd274",
+      "baseRef": "main",
+      "mergeCommitSha": "b5db60849da1afecb2a5e516fd7f07c2d2cd1b93"
+    },
+    {
+      "id": 5326191493,
+      "number": 34,
+      "title": "Repoint E2EESA and deployment-monitor records to Galinsky-Labs",
+      "url": "https://github.com/Galinsky-Labs/RAM-Marketplace/pull/34",
+      "state": "closed",
+      "draft": false,
+      "createdAt": "2026-11-15T19:14:35.000Z",
+      "updatedAt": "2026-11-15T19:21:03.000Z",
+      "closedAt": "2026-11-15T19:21:03.000Z",
+      "mergedAt": "2026-11-15T19:21:03.000Z",
+      "headSha": "ae4161fc9061aef46cfbd7cd2f01c4e5069194fa",
+      "baseRef": "main",
+      "mergeCommitSha": "a0bdb2014849d07985ac0d6737124d57ff1a68b9"
+    },
+    {
+      "id": 5326100330,
+      "number": 33,
+      "title": "Registry: Galinsky-Labs identity, PR mappings and deployment doc",
+      "url": "https://github.com/Galinsky-Labs/RAM-Marketplace/pull/33",
+      "state": "closed",
+      "draft": false,
+      "createdAt": "2026-11-15T19:04:56.000Z",
+      "updatedAt": "2026-11-15T19:10:00.000Z",
+      "closedAt": "2026-11-15T19:10:00.000Z",
+      "mergedAt": "2026-11-15T19:10:00.000Z",
+      "headSha": "92a06217ff0639129184fbae854d72b41e984727",
+      "baseRef": "main",
+      "mergeCommitSha": "f5dd6428c2a81fb65fdab20ab0fb71a28fb3f7b6"
+    },
     {
       "id": 5326045882,
       "number": 32,
