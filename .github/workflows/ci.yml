@@ -77,6 +77,11 @@ jobs:
       RAM_MONITORING_PICKUP_HOURS: "1"
       RAM_MONITORING_ORG_VERIFICATION_HOURS: "1"
       RAM_MONITORING_MAX_RUN_AGE_MINUTES: "15"
+      RAM_OIDC_ISSUER: http://127.0.0.1:4121
+      RAM_OIDC_CLIENT_ID: ci-client
+      RAM_OIDC_CLIENT_SECRET: ci-oidc-client-secret
+      RAM_OIDC_REDIRECT_URI: http://127.0.0.1:3118/api/session/oidc/callback
+      RAM_OIDC_PROVIDER_NAME: ci-oidc
       RAM_DIAGNOSTICS_PROVIDER_NAME: ci-lab
       RAM_DIAGNOSTICS_WEBHOOK_SECRET: ram-ci-diagnostics-webhook-secret-value-2026
       RAM_MAX_MUTATION_BYTES: "1048576"
@@ -104,14 +109,17 @@ jobs:
           gateway_pid=$!
           npm run monitoring:fake-alert > /tmp/ram-monitoring-alert.log 2>&1 &
           alert_pid=$!
+          npm run identity:fake-oidc > /tmp/ram-oidc.log 2>&1 &
+          oidc_pid=$!
           npm run start -- --hostname 127.0.0.1 --port 3118 > /tmp/ram-postgres-e2e.log 2>&1 &
           server_pid=$!
-          trap 'cat /tmp/ram-postgres-e2e.log; cat /tmp/ram-payment-gateway.log; cat /tmp/ram-monitoring-alert.log; kill "$server_pid" "$gateway_pid" "$alert_pid" 2>/dev/null || true' EXIT
+          trap 'cat /tmp/ram-postgres-e2e.log; cat /tmp/ram-payment-gateway.log; cat /tmp/ram-monitoring-alert.log; kill "$server_pid" "$gateway_pid" "$alert_pid" "$oidc_pid" 2>/dev/null || true' EXIT
           npm run e2e:live
           npm run e2e:identity
           npm run e2e:payments
           npm run e2e:monitoring
           npm run e2e:phase3
+          npm run e2e:oidc
       - name: Verify PostgreSQL dump and restore
         env:
           PGPASSWORD: postgres

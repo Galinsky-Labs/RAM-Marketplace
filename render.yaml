@@ -1,0 +1,44 @@
+# Render Blueprint for the public pilot demo (free plan). Secrets use sync: false
+# and are set in the Render dashboard/API, never committed.
+services:
+  - type: web
+    name: ram-marketplace
+    runtime: node
+    plan: free
+    region: ohio
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /api/health/ready
+    # Migrations and idempotent demo-identity seeding run against Neon at build time.
+    buildCommand: npm install --include=dev && npm run db:migrate:deploy && npm run db:seed:demo && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=400
+      - key: RAM_DATA_BACKEND
+        value: postgres
+      - key: DATABASE_URL          # Neon pooled connection string (runtime)
+        sync: false
+      - key: DIRECT_DATABASE_URL   # Neon direct connection string (migrations)
+        sync: false
+      - key: AUTH_SECRET
+        generateValue: true
+      # Public pilot demo: demo login, visible "Demo — no real transactions" banner,
+      # no payment rail configured, so no money can move.
+      - key: RAM_DEMO_AUTH_ENABLED
+        value: "true"
+      - key: RAM_PUBLIC_ONBOARDING_ENABLED
+        value: "false"
+      - key: RAM_CORRIDOR_RULES_ENFORCED
+        value: "false"
+      - key: RAM_MONITORING_ENABLED
+        value: "true"
+      - key: RAM_MONITORING_INPROCESS_INTERVAL_MINUTES
+        value: "30"
+      # Optional integrations (leave unset for the demo; see docs/):
+      # RAM_OIDC_ISSUER / RAM_OIDC_CLIENT_ID / RAM_OIDC_CLIENT_SECRET / RAM_OIDC_REDIRECT_URI
+      # RAM_STRIPE_SECRET_KEY / RAM_STRIPE_WEBHOOK_SECRET / RAM_STRIPE_ALLOW_LIVE
+      # RAM_DIAGNOSTICS_PROVIDER_NAME / RAM_DIAGNOSTICS_WEBHOOK_SECRET
+      # RAM_MONITORING_RUN_TOKEN / RAM_MONITORING_ALERT_WEBHOOK_URL / RAM_MONITORING_ALERT_WEBHOOK_SECRET

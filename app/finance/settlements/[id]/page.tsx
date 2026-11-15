@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireSession } from "@/lib/auth/session";
 import { getFinancialSettlement } from "@/lib/server/settlements";
-import { paymentGatewayConfig } from "@/lib/payments/gateway";
+import { activePaymentRail } from "@/lib/payments/rail";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +18,7 @@ export default async function SettlementPage({
   const session = await requireSession();
   const { id } = await params;
   const settlement = await getFinancialSettlement(session, id);
-  const gateway = paymentGatewayConfig();
+  const gateway = activePaymentRail();
 
   const balancesClear =
     settlement.buyerOutstandingCents === 0 &&

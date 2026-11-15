@@ -1,7 +1,7 @@
 import "server-only";
 import type { SessionPrincipal } from "@/lib/auth/token";
 import { requireCapability } from "@/lib/access";
-import { paymentGatewayConfig } from "@/lib/payments/gateway";
+import { activePaymentRail } from "@/lib/payments/rail";
 import type {
   PaymentProfileStatusInput,
   PaymentProfileUpsertInput
@@ -90,7 +90,7 @@ export async function upsertPaymentProfile(
   if (dataBackend() !== "postgres") {
     throw new Error("Payment profile management requires PostgreSQL persistence");
   }
-  const config = paymentGatewayConfig();
+  const config = activePaymentRail();
   if (!config) throw new Error("Payment gateway is not configured");
 
   const prisma = requirePrisma();
@@ -228,7 +228,7 @@ export async function updatePaymentProfileStatus(
     }
 
     if (input.status === "ACTIVE") {
-      const config = paymentGatewayConfig();
+      const config = activePaymentRail();
       if (!config || profile.gateway !== config.name) {
         throw new Error(
           "Payment profile gateway does not match the configured payment gateway"

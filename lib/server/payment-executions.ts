@@ -12,7 +12,6 @@ import {
   assertExecutionStatusTransition,
   bodyHash,
   executionTypeToLedgerType,
-  paymentGatewayConfig,
   signGatewayMessage,
   verifyGatewaySignature,
   type PaymentExecutionStatus,
@@ -25,6 +24,8 @@ import {
   type PaymentWebhookInput
 } from "@/lib/payments/validation";
 import { requirePrisma } from "@/lib/server/db";
+import { activePaymentRail } from "@/lib/payments/rail";
+import { buildStripeRequest, stripeAcknowledgment, type StripeConfig } from "@/lib/payments/stripe";
 
 function movementEntries(
   entries: Array<{ type: string; amountCents: number }>
@@ -77,7 +78,9 @@ function acknowledgment(value: unknown): PaymentGatewayAcknowledgment {
 }
 
 async function submitExecution(executionId: string) {
-  const config = paymentGatewayConfig();
+  const rail = activePaymentRail();
+  if (rail?.kind === "stripe") return submitStripeExecution(executionId, rail.stripe);
+  const config = rail?.kind === "http" ? rail.http : null;
   if (!config) {
     throw new Error("Payment gateway is not configured");
   }
@@ -221,8 +224,13 @@ async function submitExecution(executionId: string) {
     );
   }
 
+  return applyAcknowledgment(execution.id, parsed);
+}
+
+async function applyAcknowledgment(executionId: string, parsed: PaymentGatewayAcknowledgment) {
+  const prisma = requirePrisma();
   const current = await prisma.paymentExecution.findUnique({
-    where: { id: execution.id }
+    where: { id: executionId }
   });
   if (!current) throw new Error("Payment execution not found");
 
@@ -252,7 +260,7 @@ async function submitExecution(executionId: string) {
   );
 
   return prisma.paymentExecution.update({
-    where: { id: execution.id },
+    where: { id: executionId },
     data: {
       status: parsed.status,
       gateway: parsed.gateway,
@@ -265,13 +273,106 @@ async function submitExecution(executionId: string) {
   });
 }
 
+
+/** Submit one execution directly to Stripe (same idempotency and unknown-outcome rules). */
+async function submitStripeExecution(executionId: string, config: StripeConfig) {
+  const prisma = requirePrisma();
+  const execution = await prisma.paymentExecution.findUnique({ where: { id: executionId } });
+  if (!execution) throw new Error("Payment execution not found");
+  if (execution.status !== "CREATED" && execution.status !== "SUBMISSION_UNKNOWN") {
+    throw new Error("Payment execution is not eligible for submission");
+  }
+  const instruction = {
+    executionId: execution.id,
+    settlementId: execution.settlementId,
+    counterpartyOrganizationId: execution.counterpartyOrganizationId,
+    accountReference: execution.accountReference,
+    idempotencyKey: execution.idempotencyKey,
+    type: execution.type,
+    amountCents: execution.amountCents,
+    currency: execution.currency
+  };
+  const request = buildStripeRequest(instruction);
+  await prisma.paymentExecution.update({
+    where: { id: execution.id },
+    data: { requestPayloadHash: bodyHash(request.path + "?" + request.params.toString()) }
+  });
+
+  let response: Response;
+  try {
+    response = await fetch(config.apiBase + request.path, {
+      method: "POST",
+      headers: {
+        authorization: "Bearer " + config.secretKey,
+        "content-type": "application/x-www-form-urlencoded",
+        "idempotency-key": execution.idempotencyKey,
+        "stripe-version": "2024-06-20"
+      },
+      body: request.params.toString(),
+      signal: AbortSignal.timeout(20_000)
+    });
+  } catch (error) {
+    await prisma.paymentExecution.update({
+      where: { id: execution.id },
+      data: {
+        status: "SUBMISSION_UNKNOWN",
+        failureCode: "NETWORK_UNKNOWN",
+        failureMessage: error instanceof Error ? error.message.slice(0, 2000) : "Unknown network failure"
+      }
+    });
+    throw new Error("Payment submission outcome is unknown; retry this execution with the same idempotency key");
+  }
+
+  const text = await response.text();
+  let body: unknown = null;
+  try { body = JSON.parse(text); } catch { body = null; }
+
+  if (response.status >= 500 || response.status === 429 || response.status === 409) {
+    // 409 = Stripe idempotency conflict in flight; all of these are ambiguous.
+    await prisma.paymentExecution.update({
+      where: { id: execution.id },
+      data: { status: "SUBMISSION_UNKNOWN", failureCode: "STRIPE_" + response.status, failureMessage: "Stripe HTTP " + response.status }
+    });
+    throw new Error("Stripe returned an ambiguous response; retry the same execution");
+  }
+  if (!response.ok) {
+    const error = (body as { error?: { code?: string; message?: string } } | null)?.error;
+    assertExecutionStatusTransition(executionStatus(execution.status), "FAILED");
+    await prisma.paymentExecution.update({
+      where: { id: execution.id },
+      data: {
+        status: "FAILED",
+        failureCode: (error?.code ?? "STRIPE_" + response.status).slice(0, 240),
+        failureMessage: (error?.message ?? "Stripe rejected the request").slice(0, 2000),
+        completedAt: new Date()
+      }
+    });
+    throw new Error("Stripe rejected the execution request");
+  }
+  let parsed: PaymentGatewayAcknowledgment;
+  try {
+    parsed = stripeAcknowledgment(execution.type, body, execution.id);
+  } catch (error) {
+    await prisma.paymentExecution.updateMany({
+      where: { id: execution.id, status: { in: ["CREATED", "SUBMISSION_UNKNOWN"] } },
+      data: {
+        status: "SUBMISSION_UNKNOWN",
+        failureCode: "ACKNOWLEDGMENT_INVALID",
+        failureMessage: error instanceof Error ? error.message.slice(0, 2000) : "Invalid Stripe response"
+      }
+    });
+    throw new Error("Stripe response could not be trusted; reconcile or retry the same execution");
+  }
+  return applyAcknowledgment(execution.id, parsed);
+}
+
 export async function initiatePaymentExecution(
   principal: SessionPrincipal,
   input: PaymentExecutionRequest
 ) {
   requireCapability(principal.role, "settlement:manage");
   const parsed = paymentExecutionRequestSchema.parse(input);
-  const config = paymentGatewayConfig();
+  const config = activePaymentRail();
   if (!config) {
     throw new Error("Payment gateway is not configured");
   }
@@ -453,7 +554,8 @@ export async function processPaymentWebhook(
   timestamp: string | null,
   signature: string | null
 ) {
-  const config = paymentGatewayConfig();
+  const rail = activePaymentRail();
+  const config = rail?.kind === "http" ? rail.http : null;
   if (!config) throw new Error("Payment gateway is not configured");
 
   verifyGatewaySignature(
@@ -470,7 +572,12 @@ export async function processPaymentWebhook(
     throw new Error("Invalid payment webhook payload");
   }
 
-  if (input.gateway !== config.name) {
+  return applyPaymentWebhook(input, config.name, bodyHash(rawBody));
+}
+
+/** Provider-neutral webhook application shared by the HTTP gateway and Stripe. */
+export async function applyPaymentWebhook(input: PaymentWebhookInput, railName: string, payloadHash: string) {
+  if (input.gateway !== railName) {
     throw new Error("Payment webhook gateway mismatch");
   }
 
@@ -494,7 +601,7 @@ export async function processPaymentWebhook(
         gateway: input.gateway,
         eventId: input.eventId,
         executionId: input.executionId,
-        payloadHash: bodyHash(rawBody)
+        payloadHash
       }
     });
 

@@ -161,3 +161,5 @@ textarea { resize: vertical; }
 .dataTable th, .dataTable td { text-align: left; padding: 8px 10px; border-top: 1px solid var(--line); vertical-align: top; }
 .dataTable th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
 .tableScroll { overflow-x: auto; }
+.demoBanner { background: #7a2e0e; color: #fff; padding: 10px 16px; text-align: center; font-size: 14px; line-height: 1.4; }
+.demoBanner strong { letter-spacing: .02em; }

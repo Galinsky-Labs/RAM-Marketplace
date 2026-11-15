@@ -29,7 +29,10 @@
     "monitoring:fake-alert": "node scripts/fake-monitoring-alert-receiver.mjs",
     "pilot:check": "tsx scripts/pilot-readiness.ts",
     "check": "npm run prisma:validate && npm test && npm run typecheck && npm run build",
-    "e2e:phase3": "tsx scripts/phase3-lifecycle-e2e.ts"
+    "e2e:phase3": "tsx scripts/phase3-lifecycle-e2e.ts",
+    "e2e:oidc": "tsx scripts/oidc-lifecycle-e2e.ts",
+    "identity:fake-oidc": "node scripts/fake-oidc-provider.mjs",
+    "db:seed:demo": "tsx scripts/seed-e2e-postgres.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.0.0",
