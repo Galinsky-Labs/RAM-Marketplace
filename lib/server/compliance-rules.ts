@@ -1,6 +1,7 @@
 import "server-only";
 import type { SessionPrincipal } from "@/lib/auth/token";
 import { requirePrisma } from "@/lib/server/db";
+import { corridorJurisdictionsActive } from "@/lib/jurisdictions";
 import type { RuleDraft } from "@/lib/compliance-rule-drafts";
 import {
   assertPublishable,
@@ -95,7 +96,20 @@ export async function listPublishedRulesForReview(principal: SessionPrincipal) {
   return listCurrentPublishedRules();
 }
 
-/** Server-side corridor decision used by transport gating. Deny by default. */
+/**
+ * Server-side corridor decision used by transport gating. Deny by default:
+ * requires a published permitting rule AND both states activated for the species.
+ */
 export async function decideCorridor(query: CorridorQuery) {
-  return evaluateCorridor(await listCurrentPublishedRules(), query);
+  const decision = evaluateCorridor(await listCurrentPublishedRules(), query);
+  if (decision.decision !== "ALLOW") return decision;
+  const activations = await requirePrisma().jurisdictionActivation.findMany({
+    where: { stateCode: { in: [query.originState.toUpperCase(), query.destinationState.toUpperCase()] } },
+    select: { stateCode: true, species: true, status: true }
+  });
+  const jurisdiction = corridorJurisdictionsActive(
+    activations.map((row) => ({ ...row, status: row.status as "PROPOSED" | "ACTIVE" | "SUSPENDED" })),
+    query.originState, query.destinationState, query.species
+  );
+  return jurisdiction.active ? decision : { ...decision, decision: "DENY" as const, reason: jurisdiction.reason };
 }

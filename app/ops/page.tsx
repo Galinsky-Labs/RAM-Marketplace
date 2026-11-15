@@ -30,7 +30,10 @@ export default async function OpsPage() {
         <Link className="secondaryButton" href="/ops/disputes">Receiving disputes</Link>
         <Link className="secondaryButton" href="/ops/producer-feeds">Producer feeds</Link>
         {(session.role === "RAM_COMPLIANCE" || session.role === "RAM_SUPER_ADMIN") ? (
-          <Link className="secondaryButton" href="/ops/compliance/rules">Compliance rules</Link>
+          <>
+            <Link className="secondaryButton" href="/ops/compliance/rules">Compliance rules</Link>
+            <Link className="secondaryButton" href="/ops/compliance/jurisdictions">Jurisdictions</Link>
+          </>
         ) : null}
         {can(session.role, "audit:read") ? (
           <>
