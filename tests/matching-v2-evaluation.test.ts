@@ -59,8 +59,10 @@ test("review-pending baseline hard gates cannot be promoted by a challenger", ()
     ...baseline,
     { animalCaseId: "d", researchNeedId: "need-1", eligible: false, totalScore: 60, hardGates: [{ gate: "vet", state: "REVIEW" }] }
   ];
+  // The challenger keeps the same gate category but claims it passes; the
+  // baseline REVIEW state stays authoritative and must surface as a regression.
   const challenger = pending.map((item) => item.animalCaseId === "d"
-    ? { ...item, eligible: true, totalScore: 99, hardGates: pass }
+    ? { ...item, eligible: true, totalScore: 99, hardGates: [{ gate: "vet", state: "PASS" as const }] }
     : item);
   const result = evaluateShadowRanking(pending, challenger, { ...labels, d: true });
   assert.deepEqual(result.hardGateRegressions, ["d"]);
