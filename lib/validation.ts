@@ -1,3 +1,4 @@
+import { speciesProfileIssues } from "./species";
 import { z } from "zod";
 import { DISCLOSURE_FIELDS } from "./disclosure-policy";
 
@@ -31,6 +32,9 @@ export const animalSubmissionSchema = z.object({
 }).superRefine((value, ctx) => {
   if (value.plannedCullAt < value.cullDecisionDate) {
     ctx.addIssue({ code: "custom", path: ["plannedCullAt"], message: "Planned cull date cannot precede the cull decision" });
+  }
+  for (const message of speciesProfileIssues(value)) {
+    ctx.addIssue({ code: "custom", path: ["species"], message });
   }
 });
 

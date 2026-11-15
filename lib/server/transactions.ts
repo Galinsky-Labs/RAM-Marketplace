@@ -1,4 +1,5 @@
 import "server-only";
+import { assertProcurementSatisfied } from "@/lib/procurement";
 import type { Prisma } from "@/generated/prisma/client";
 import type { SessionPrincipal } from "@/lib/auth/token";
 import {
@@ -740,7 +741,8 @@ export async function commitBuyerOrder(
       include: {
         researchNeed: {
           select: { status: true }
-        }
+        },
+        purchaseOrder: { select: { status: true, amountCents: true, poNumber: true } }
       }
     });
     if (!order) throw new Error("Order not found");
@@ -750,6 +752,12 @@ export async function commitBuyerOrder(
     if (isExpired(order.quoteExpiresAt) || isExpired(order.holdExpiresAt)) {
       throw new Error("Quote or reservation hold has expired");
     }
+
+    // Institutional procurement gate (only when the buyer org requires POs).
+    const procurementPolicy = await tx.buyerProcurementPolicy.findUnique({
+      where: { organizationId: principal.organizationId }
+    });
+    assertProcurementSatisfied(procurementPolicy, order.purchaseOrder, order.buyerPriceCents);
 
     assertOrderTransition(order.status, "BUYER_COMMITTED");
     if (order.researchNeed.status === "SELECTED") {
@@ -785,7 +793,8 @@ export async function commitBuyerOrder(
         metadata: {
           institutionalApprovalAttested: input.institutionalApprovalAttested,
           purchasingAuthorityAttested: input.purchasingAuthorityAttested,
-          protocolReference: input.protocolReference
+          protocolReference: input.protocolReference,
+          purchaseOrderNumber: order.purchaseOrder?.poNumber ?? null
         }
       }
     });

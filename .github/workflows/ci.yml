@@ -120,6 +120,7 @@ jobs:
           npm run e2e:monitoring
           npm run e2e:phase3
           npm run e2e:oidc
+          npm run e2e:scale
       - name: Verify PostgreSQL dump and restore
         env:
           PGPASSWORD: postgres
@@ -132,7 +133,7 @@ jobs:
           docker exec "$cid" createdb -U postgres ram_restore
           docker exec "$cid" pg_restore -U postgres -d ram_restore --no-owner --no-acl --exit-on-error /tmp/ram-marketplace.dump
 
-          for table in Organization User Membership ExternalIdentity IdentityAssertionUse OrganizationVerification OrganizationPaymentProfile AnimalCase ResearchNeed Order FinancialSettlement FinancialLedgerEntry PaymentExecution PaymentWebhookReceipt OperationalIncident MonitoringRun AlertDelivery PilotGateVerification ComplianceRuleDraftRevision ComplianceRulePublication OrganizationApiKey SupplierBatchImport DiagnosticReport PaymentReconciliationRun AuditEvent; do
+          for table in Organization User Membership ExternalIdentity IdentityAssertionUse OrganizationVerification OrganizationPaymentProfile AnimalCase ResearchNeed Order FinancialSettlement FinancialLedgerEntry PaymentExecution PaymentWebhookReceipt OperationalIncident MonitoringRun AlertDelivery PilotGateVerification ComplianceRuleDraftRevision ComplianceRulePublication OrganizationApiKey SupplierBatchImport DiagnosticReport PaymentReconciliationRun JurisdictionActivation BuyerProcurementPolicy PurchaseOrder AuditEvent; do
             source_count=$(psql -h 127.0.0.1 -U postgres -d ram_marketplace -Atc "SELECT count(*) FROM \"$table\";")
             restore_count=$(psql -h 127.0.0.1 -U postgres -d ram_restore -Atc "SELECT count(*) FROM \"$table\";")
             test "$source_count" = "$restore_count"

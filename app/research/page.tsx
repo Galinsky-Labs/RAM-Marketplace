@@ -18,7 +18,10 @@ export default async function ResearchNeedsPage() {
           <h1>Research needs</h1>
           <p>Describe the model you actually need. RAM continuously evaluates verified animal cases against active requirements.</p>
         </div>
-        <Link className="primaryButton" href="/research/new">Create research need</Link>
+        <div className="formActions">
+          <Link className="secondaryButton" href="/research/procurement">Purchase orders</Link>
+          <Link className="primaryButton" href="/research/new">Create research need</Link>
+        </div>
       </div>
 
       <div className="prototypeBanner">

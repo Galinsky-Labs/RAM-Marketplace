@@ -1,3 +1,4 @@
+import { normalizeSpecies, speciesProfile } from "@/lib/species";
 import "server-only";
 import { randomUUID } from "node:crypto";
 import type { SessionPrincipal } from "@/lib/auth/token";
@@ -27,7 +28,7 @@ export interface ResearchNeedSummary {
 }
 
 export function publicAnimalId(species: string) {
-  const code = species.replace(/[^A-Za-z]/g, "").slice(0, 2).toUpperCase() || "AN";
+  const code = speciesProfile(species)?.code ?? (species.replace(/[^A-Za-z]/g, "").slice(0, 2).toUpperCase() || "AN");
   return `RAM-${code}-${randomUUID().replaceAll("-", "").slice(0, 10).toUpperCase()}`;
 }
 
@@ -63,7 +64,7 @@ export function animalCaseCreateData(
 ) {
   return {
     publicId,
-    species: input.species,
+    species: normalizeSpecies(input.species),
     breed: input.breed,
     sex: input.sex,
     ageMonths: input.ageMonths,

@@ -623,6 +623,7 @@ model Order {
   transportAssignment         TransportAssignment?
   receivingInspection         ReceiptInspection?
   financialSettlement         FinancialSettlement?
+  purchaseOrder               PurchaseOrder?
   dispute                     OrderDispute?
   createdAt                   DateTime     @default(now())
   updatedAt                   DateTime     @updatedAt
@@ -1100,4 +1101,54 @@ model PaymentReconciliationRun {
 
   @@unique([provider, statementHash])
   @@index([provider, periodStart])
+}
+
+model JurisdictionActivation {
+  id                String    @id @default(cuid())
+  stateCode         String
+  species           String
+  status            String    @default("PROPOSED")
+  evidenceReference String
+  proposedById      String
+  approvedById      String?
+  activatedAt       DateTime?
+  suspendedById     String?
+  suspendedAt       DateTime?
+  suspendedReason   String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([stateCode, species])
+  @@index([status, species])
+}
+
+model BuyerProcurementPolicy {
+  id                       String   @id @default(cuid())
+  organizationId           String   @unique
+  requirePurchaseOrder     Boolean  @default(false)
+  singleApproverLimitCents Int      @default(0)
+  updatedById              String
+  updatedAt                DateTime @updatedAt
+}
+
+model PurchaseOrder {
+  id                  String   @id @default(cuid())
+  orderId             String   @unique
+  buyerOrganizationId String
+  poNumber            String
+  costCenter          String
+  amountCents         Int
+  currency            String   @default("USD")
+  status              String   @default("REQUESTED")
+  requestedById       String
+  firstApproverId     String?
+  secondApproverId    String?
+  decidedAt           DateTime?
+  decisionNote        String?
+  order               Order    @relation(fields: [orderId], references: [id])
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@unique([buyerOrganizationId, poNumber])
+  @@index([buyerOrganizationId, status])
 }
