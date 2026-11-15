@@ -56,6 +56,8 @@ export default async function OpsLogisticsPage() {
                     <label><span>Pickup window end</span><input type="datetime-local" name="pickupWindowEnd" /></label>
                     <label><span>Delivery window start</span><input type="datetime-local" name="deliveryWindowStart" /></label>
                     <label><span>Delivery window end</span><input type="datetime-local" name="deliveryWindowEnd" /></label>
+                    <label><span>Origin state (corridor)</span><input name="originState" maxLength={2} placeholder="IA" /></label>
+                    <label><span>Destination state (corridor)</span><input name="destinationState" maxLength={2} placeholder="IA" /></label>
                   </div>
                   <label><span>Movement document references</span><textarea name="movementDocumentRefs" rows={3} placeholder="One per line or separated by semicolons" /></label>
                   <label><span>Sanitation / biosecurity requirements</span><textarea name="sanitationRequirements" rows={3} /></label>

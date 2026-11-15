@@ -81,6 +81,7 @@ export function proxy(request: NextRequest) {
         request.nextUrl.pathname !== "/api/session/external" &&
         request.nextUrl.pathname !== "/api/payments/webhook" &&
         request.nextUrl.pathname !== "/api/monitoring/run" &&
+        request.nextUrl.pathname !== "/api/diagnostics/webhook" &&
         !enterpriseApiKeyRequest(request)
       ) {
         assertSameOriginMutation(metadata, {

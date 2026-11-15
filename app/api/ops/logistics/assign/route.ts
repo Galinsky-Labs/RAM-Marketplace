@@ -21,7 +21,9 @@ export async function POST(request: NextRequest) {
       deliveryWindowEnd: optional(form.get("deliveryWindowEnd")),
       movementDocumentRefs: optional(form.get("movementDocumentRefs")),
       sanitationRequirements: optional(form.get("sanitationRequirements")),
-      specialInstructions: optional(form.get("specialInstructions"))
+      specialInstructions: optional(form.get("specialInstructions")),
+      originState: optional(form.get("originState")),
+      destinationState: optional(form.get("destinationState"))
     });
 
     if (!parsed.success) {

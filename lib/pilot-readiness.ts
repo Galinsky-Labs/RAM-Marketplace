@@ -298,6 +298,16 @@ export function evaluatePilotReadiness(
       : "One or more RAM_MONITORING_* threshold values are invalid."
   });
 
+  const corridorRulesEnforced = env.RAM_CORRIDOR_RULES_ENFORCED === "true";
+  checks.push({
+    id: "corridor_rules_enforced",
+    label: "Transport corridor rule enforcement",
+    status: corridorRulesEnforced ? "PASS" : "BLOCK",
+    detail: corridorRulesEnforced
+      ? "Transport assignment requires a published, in-effect corridor rule (deny by default)."
+      : "Set RAM_CORRIDOR_RULES_ENFORCED=true so transports require a published corridor rule."
+  });
+
   const mutationBytes = Number(env.RAM_MAX_MUTATION_BYTES ?? "1048576");
   checks.push({
     id: "mutation_limit",

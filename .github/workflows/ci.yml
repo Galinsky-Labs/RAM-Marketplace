@@ -77,6 +77,8 @@ jobs:
       RAM_MONITORING_PICKUP_HOURS: "1"
       RAM_MONITORING_ORG_VERIFICATION_HOURS: "1"
       RAM_MONITORING_MAX_RUN_AGE_MINUTES: "15"
+      RAM_DIAGNOSTICS_PROVIDER_NAME: ci-lab
+      RAM_DIAGNOSTICS_WEBHOOK_SECRET: ram-ci-diagnostics-webhook-secret-value-2026
       RAM_MAX_MUTATION_BYTES: "1048576"
     steps:
       - uses: actions/checkout@v4
@@ -109,6 +111,7 @@ jobs:
           npm run e2e:identity
           npm run e2e:payments
           npm run e2e:monitoring
+          npm run e2e:phase3
       - name: Verify PostgreSQL dump and restore
         env:
           PGPASSWORD: postgres
@@ -121,7 +124,7 @@ jobs:
           docker exec "$cid" createdb -U postgres ram_restore
           docker exec "$cid" pg_restore -U postgres -d ram_restore --no-owner --no-acl --exit-on-error /tmp/ram-marketplace.dump
 
-          for table in Organization User Membership ExternalIdentity IdentityAssertionUse OrganizationVerification OrganizationPaymentProfile AnimalCase ResearchNeed Order FinancialSettlement FinancialLedgerEntry PaymentExecution PaymentWebhookReceipt OperationalIncident MonitoringRun AlertDelivery PilotGateVerification ComplianceRuleDraftRevision ComplianceRulePublication OrganizationApiKey SupplierBatchImport AuditEvent; do
+          for table in Organization User Membership ExternalIdentity IdentityAssertionUse OrganizationVerification OrganizationPaymentProfile AnimalCase ResearchNeed Order FinancialSettlement FinancialLedgerEntry PaymentExecution PaymentWebhookReceipt OperationalIncident MonitoringRun AlertDelivery PilotGateVerification ComplianceRuleDraftRevision ComplianceRulePublication OrganizationApiKey SupplierBatchImport DiagnosticReport PaymentReconciliationRun AuditEvent; do
             source_count=$(psql -h 127.0.0.1 -U postgres -d ram_marketplace -Atc "SELECT count(*) FROM \"$table\";")
             restore_count=$(psql -h 127.0.0.1 -U postgres -d ram_restore -Atc "SELECT count(*) FROM \"$table\";")
             test "$source_count" = "$restore_count"

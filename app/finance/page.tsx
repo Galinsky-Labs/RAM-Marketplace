@@ -34,6 +34,9 @@ export default async function FinancePage() {
         <Link className="secondaryButton" href="/finance/payment-profiles">
           Payment routing profiles
         </Link>
+        <Link className="secondaryButton" href="/finance/reconciliation">
+          Payment reconciliation
+        </Link>
       </div>
 
       <div className="detailGrid">

@@ -76,6 +76,11 @@ export function previewSupplierBatch(organizationId: string, payload: unknown): 
 
 /** Reject oversized payloads while reading, including absent or false Content-Length. */
 export async function readBatchJson(request: Request): Promise<unknown> {
+  return JSON.parse(await readBatchText(request));
+}
+
+/** Bounded UTF-8 body reader shared by JSON and CSV producer feeds. */
+export async function readBatchText(request: Request): Promise<string> {
   if (!request.body) throw new Error("batch body is required");
   const reader = request.body.getReader();
   const chunks: Uint8Array[] = [];
@@ -100,5 +105,5 @@ export async function readBatchJson(request: Request): Promise<unknown> {
     bytes.set(chunk, offset);
     offset += chunk.byteLength;
   }
-  return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+  return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
 }

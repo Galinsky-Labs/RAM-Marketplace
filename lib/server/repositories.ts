@@ -26,7 +26,7 @@ export interface ResearchNeedSummary {
   updated: string;
 }
 
-function publicAnimalId(species: string) {
+export function publicAnimalId(species: string) {
   const code = species.replace(/[^A-Za-z]/g, "").slice(0, 2).toUpperCase() || "AN";
   return `RAM-${code}-${randomUUID().replaceAll("-", "").slice(0, 10).toUpperCase()}`;
 }
@@ -54,6 +54,54 @@ function statusAction(status: string) {
   }
 }
 
+/** Shared create payload for single submissions and promoted producer-feed rows. */
+export function animalCaseCreateData(
+  publicId: string,
+  input: AnimalSubmissionInput,
+  farmSite: { id: string; regionLabel: string; exactAddress: string; organization: { name: string } },
+  owner: { name: string; email: string }
+) {
+  return {
+    publicId,
+    species: input.species,
+    breed: input.breed,
+    sex: input.sex,
+    ageMonths: input.ageMonths,
+    weightKg: input.weightKg,
+    condition: input.condition,
+    diseaseStage: input.diseaseStage,
+    regionLabel: farmSite.regionLabel,
+    publicSummary: "Submitted for RAM veterinary characterization; not yet marketable.",
+    status: "SUBMITTED" as const,
+    sourceDisclosure: "PUBLIC_ANONYMIZED" as const,
+    sourceRecord: {
+      create: {
+        farmSiteId: farmSite.id,
+        exactAddress: farmSite.exactAddress,
+        legalOwnerName: farmSite.organization.name,
+        ownerContactName: owner.name,
+        ownerContactEmail: owner.email,
+        generalHusbandry: input.generalHusbandry ?? null,
+        privateHistory: {
+          observedSigns: input.observedSigns,
+          firstObservedDate: input.firstObservedDate ?? null,
+          existingDiagnosis: input.existingDiagnosis ?? null,
+          welfareUrgency: input.welfareUrgency
+        },
+        privateNotes: input.currentTreatment ?? null
+      }
+    },
+    cullEvent: {
+      create: {
+        declaredAt: new Date(`${input.cullDecisionDate}T00:00:00.000Z`),
+        plannedCullAt: new Date(`${input.plannedCullAt}T00:00:00.000Z`),
+        reason: input.cullReason,
+        independentlyIdentified: input.independentCullAttestation
+      }
+    }
+  };
+}
+
 export async function createAnimalCandidate(
   principal: SessionPrincipal,
   input: AnimalSubmissionInput
@@ -75,51 +123,12 @@ export async function createAnimalCandidate(
   }
 
   const publicId = publicAnimalId(input.species);
-  const submittedAt = new Date();
-  const cullDecisionAt = new Date(`${input.cullDecisionDate}T00:00:00.000Z`);
-  const plannedCullAt = new Date(`${input.plannedCullAt}T00:00:00.000Z`);
-
   await prisma.$transaction(async (tx) => {
     await tx.animalCase.create({
-      data: {
-        publicId,
-        species: input.species,
-        breed: input.breed,
-        sex: input.sex,
-        ageMonths: input.ageMonths,
-        weightKg: input.weightKg,
-        condition: input.condition,
-        diseaseStage: input.diseaseStage,
-        regionLabel: farmSite.regionLabel,
-        publicSummary: "Submitted for RAM veterinary characterization; not yet marketable.",
-        status: "SUBMITTED",
-        sourceDisclosure: "PUBLIC_ANONYMIZED",
-        sourceRecord: {
-          create: {
-            farmSiteId: farmSite.id,
-            exactAddress: farmSite.exactAddress,
-            legalOwnerName: farmSite.organization.name,
-            ownerContactName: principal.name,
-            ownerContactEmail: principal.email,
-            generalHusbandry: input.generalHusbandry ?? null,
-            privateHistory: {
-              observedSigns: input.observedSigns,
-              firstObservedDate: input.firstObservedDate ?? null,
-              existingDiagnosis: input.existingDiagnosis ?? null,
-              welfareUrgency: input.welfareUrgency
-            },
-            privateNotes: input.currentTreatment ?? null
-          }
-        },
-        cullEvent: {
-          create: {
-            declaredAt: cullDecisionAt,
-            plannedCullAt,
-            reason: input.cullReason,
-            independentlyIdentified: input.independentCullAttestation
-          }
-        }
-      }
+      data: animalCaseCreateData(publicId, input, farmSite, {
+        name: principal.name,
+        email: principal.email
+      })
     });
 
     await tx.auditEvent.create({
