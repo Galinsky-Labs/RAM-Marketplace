@@ -250,6 +250,7 @@ model Organization {
   status        OrganizationStatus @default(PENDING_VERIFICATION)
   memberships   Membership[]
   supplierBatchImports SupplierBatchImport[]
+  apiKeys              OrganizationApiKey[]
   farmSites     FarmSite[]
   facilities    Facility[]
   buyerOrders   Order[]          @relation("BuyerOrganizationOrders")
@@ -270,6 +271,7 @@ model User {
   name               String
   memberships        Membership[]
   createdSupplierBatchImports SupplierBatchImport[]
+  createdApiKeys     OrganizationApiKey[]
   createdNeeds       ResearchNeed[]      @relation("ResearchNeedCreator")
   veterinaryReviews  VeterinaryReview[]  @relation("VetReviewer")
   disclosureRequests DisclosureRequest[] @relation("DisclosureRequester")
@@ -1004,5 +1006,39 @@ model SupplierBatchImport {
   createdBy      User         @relation(fields: [createdById], references: [id])
 
   @@unique([organizationId, batchKey])
+  @@index([organizationId, createdAt])
+}
+
+model ComplianceRulePublication {
+  id            String    @id @default(cuid())
+  ruleId        String
+  revision      Int
+  digest        String    @unique
+  payload       Json
+  authorUserId  String
+  publishedById String
+  publishedAt   DateTime  @default(now())
+  supersededAt  DateTime?
+
+  @@unique([ruleId, revision])
+  @@index([supersededAt, ruleId])
+}
+
+model OrganizationApiKey {
+  id             String       @id @default(cuid())
+  organizationId String
+  createdById    String
+  role           MembershipRole
+  name           String
+  prefix         String       @unique
+  keyHash        String       @unique
+  scopes         String[]
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  lastUsedAt     DateTime?
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  createdBy      User         @relation(fields: [createdById], references: [id])
+
   @@index([organizationId, createdAt])
 }

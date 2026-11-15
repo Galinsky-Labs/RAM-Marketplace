@@ -70,6 +70,15 @@ function build(input: RuleDraftInput, revision: number): RuleDraft {
   return { ...fields, revision, status: "DRAFT", digest };
 }
 
+/** True when a persisted draft still matches the digest of its normalized content. */
+export function ruleDraftDigestValid(draft: RuleDraft): boolean {
+  try {
+    return build(draft, draft.revision).digest === draft.digest;
+  } catch {
+    return false;
+  }
+}
+
 export function createRuleDraft(input: RuleDraftInput): RuleDraft {
   return build(input, 1);
 }

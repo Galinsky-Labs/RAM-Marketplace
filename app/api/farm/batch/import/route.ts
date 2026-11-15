@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRequestSession } from "@/lib/auth/session";
+import { requireSessionOrApiKey } from "@/lib/server/api-keys";
 import { requireCapability } from "@/lib/access";
 import { readBatchJson } from "@/lib/supplier-batch-preview";
 import { getSupplierBatchImport, quarantineSupplierBatch } from "@/lib/server/supplier-batch-import";
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await requireRequestSession(request);
+    const session = await requireSessionOrApiKey(request, "supplier-batch:write");
     requireCapability(session.role, "animal:create");
     const payload = await readBatchJson(request);
     const result = await quarantineSupplierBatch(session, payload);
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await requireRequestSession(request);
+    const session = await requireSessionOrApiKey(request, "supplier-batch:read");
     requireCapability(session.role, "animal:create");
     const batchKey = new URL(request.url).searchParams.get("batchKey") ?? "";
     if (!/^[A-Za-z0-9_-]{8,120}$/.test(batchKey)) throw new Error("Invalid batch key");

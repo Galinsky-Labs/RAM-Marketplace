@@ -52,6 +52,18 @@ function requestMetadata(request: NextRequest) {
   };
 }
 
+// Enterprise API calls authenticate with an explicit bearer API key, never a
+// cookie, so the browser same-origin (CSRF) check does not apply to them. The
+// route handlers accept the key only on API-key-enabled endpoints and never
+// fall back to the cookie session when a key header is present.
+const API_KEY_PATHS = new Set(["/api/farm/batch/import"]);
+function enterpriseApiKeyRequest(request: NextRequest) {
+  return (
+    API_KEY_PATHS.has(request.nextUrl.pathname) &&
+    /^Bearer ramk_/.test(request.headers.get("authorization") ?? "")
+  );
+}
+
 function secured(response: NextResponse) {
   response.headers.set("Cache-Control", "no-store");
   response.headers.set("X-RAM-Request-ID", crypto.randomUUID());
@@ -68,7 +80,8 @@ export function proxy(request: NextRequest) {
       if (
         request.nextUrl.pathname !== "/api/session/external" &&
         request.nextUrl.pathname !== "/api/payments/webhook" &&
-        request.nextUrl.pathname !== "/api/monitoring/run"
+        request.nextUrl.pathname !== "/api/monitoring/run" &&
+        !enterpriseApiKeyRequest(request)
       ) {
         assertSameOriginMutation(metadata, {
           production: process.env.NODE_ENV === "production"

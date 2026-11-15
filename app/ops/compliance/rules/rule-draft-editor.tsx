@@ -67,6 +67,26 @@ export function RuleDraftEditor({ authorId }: { authorId: string }) {
     }
   }
 
+  async function publishLoaded() {
+    if (!currentDigest || !revision) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/ops/compliance/rules/publications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ruleId, revision, digest: currentDigest })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to publish revision");
+      setMessage("Revision " + result.rule.revision + " PUBLISHED by a second reviewer. Reload the page to see it in the published table.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to publish revision");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
@@ -124,6 +144,8 @@ export function RuleDraftEditor({ authorId }: { authorId: string }) {
         <div className="formActions">
           <span>Current revision: {revision || "not saved"}</span>
           <button className="primaryButton" type="submit" disabled={busy || !ruleId}>{busy ? "Working..." : "Save draft revision"}</button>
+          <button className="secondaryButton" type="button" disabled={busy || !currentDigest} onClick={publishLoaded}
+            title="Two-person rule: the author of a revision cannot publish it">Publish this exact revision</button>
         </div>
       </form>
       <p role="status">{message}</p>
