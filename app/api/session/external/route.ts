@@ -1,16 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  attachEnrollmentIdentity,
-  attachSession,
-  clearEnrollmentIdentity
-} from "@/lib/auth/session";
-import {
   getIdentityAssertionSecret,
   identityBoundaryConfig
 } from "@/lib/auth/identity-config";
 import { verifyExternalIdentityAssertion } from "@/lib/auth/external-assertion";
-import { landingPageForRole } from "@/lib/onboarding";
 import { consumeExternalIdentity } from "@/lib/server/identity";
+import { externalSessionResponse } from "@/lib/server/external-session";
 import {
   enforceRequestRateLimit,
   RateLimitExceededError
@@ -63,40 +58,7 @@ export async function POST(request: NextRequest) {
       organizationId
     );
 
-    if (resolution.kind === "SELECT_ORGANIZATION") {
-      return NextResponse.json(
-        {
-          error: "Organization selection required",
-          choices: resolution.choices
-        },
-        { status: 409 }
-      );
-    }
-
-    if (resolution.kind === "ENROLLMENT") {
-      const response = NextResponse.redirect(
-        new URL("/onboarding?identity=verified", request.url),
-        303
-      );
-      return attachEnrollmentIdentity(response, {
-        userId: resolution.userId,
-        email: resolution.email,
-        name: resolution.name,
-        provider: resolution.provider,
-        subject: resolution.subject
-      });
-    }
-
-    const destination = resolution.operational
-      ? landingPageForRole(resolution.principal.role)
-      : "/account";
-
-    const response = NextResponse.redirect(
-      new URL(destination, request.url),
-      303
-    );
-    clearEnrollmentIdentity(response);
-    return attachSession(response, resolution.principal);
+    return externalSessionResponse(request, resolution);
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "External identity sign-in failed";

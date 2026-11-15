@@ -1,5 +1,14 @@
 import { demoAuthEnabled } from "@/lib/auth/session";
 import { identityBoundaryConfig } from "@/lib/auth/identity-config";
+import { oidcConfig } from "@/lib/auth/oidc";
+
+function ssoEnabled() {
+  try {
+    return Boolean(oidcConfig());
+  } catch {
+    return false;
+  }
+}
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +27,7 @@ const demos = [
 export default function SignInPage() {
   const demoEnabled = demoAuthEnabled();
   const identity = identityBoundaryConfig();
+  const sso = ssoEnabled();
 
   return (
     <section className="page narrow">
@@ -40,7 +50,11 @@ export default function SignInPage() {
             Use the configured identity provider for both existing accounts and
             new organization onboarding.
           </p>
-          {identity.loginUrl ? (
+          {sso ? (
+            <a className="primaryButton" href="/api/session/oidc/start">
+              Sign in with organization SSO
+            </a>
+          ) : identity.loginUrl ? (
             <a className="primaryButton" href={identity.loginUrl}>
               Continue with verified identity
             </a>
@@ -58,7 +72,11 @@ export default function SignInPage() {
             creates a pending workspace. Operational access starts only after RAM
             verifies the organization.
           </p>
-          {identity.loginUrl ? (
+          {sso ? (
+            <a className="secondaryButton" href="/api/session/oidc/start?next=/onboarding">
+              Verify identity & start onboarding
+            </a>
+          ) : identity.loginUrl ? (
             <a className="secondaryButton" href={identity.loginUrl}>
               Verify identity & start onboarding
             </a>
@@ -72,10 +90,10 @@ export default function SignInPage() {
 
       {demoEnabled && (
         <div className="panel">
-          <h2>Development demo identities</h2>
+          <h2>Demo identities</h2>
           <p>
-            These signed sessions are available only in local development or when
-            explicitly enabled.
+            Public pilot demo: pick a role to explore with synthetic data. Demo
+            sessions cannot move real animals or money.
           </p>
           <div className="demoGrid">
             {demos.map((demo) => (

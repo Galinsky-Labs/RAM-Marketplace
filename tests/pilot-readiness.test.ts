@@ -128,3 +128,22 @@ test("pilot readiness blocks missing, shared or insecure monitoring configuratio
     assert.equal(checks.find((check) => check.id === id)?.status, "BLOCK");
   }
 });
+
+test("valid OIDC and live Stripe configuration satisfy identity and payment checks", async () => {
+  const { evaluatePilotReadiness: evaluate } = await import("../lib/pilot-readiness");
+  const base = { ...readyEnv } as Record<string, string | undefined>;
+  for (const key of ["RAM_IDENTITY_ASSERTION_SECRET", "RAM_IDENTITY_ALLOWED_PROVIDERS", "RAM_IDENTITY_LOGIN_URL",
+    "RAM_PAYMENT_GATEWAY_NAME", "RAM_PAYMENT_GATEWAY_URL", "RAM_PAYMENT_GATEWAY_SECRET"]) delete base[key];
+  const env = {
+    ...base,
+    RAM_OIDC_ISSUER: "https://idp.example.org", RAM_OIDC_CLIENT_ID: "ram", RAM_OIDC_CLIENT_SECRET: "s3cr3t-value",
+    RAM_OIDC_REDIRECT_URI: "https://ram.example.org/api/session/oidc/callback",
+    RAM_STRIPE_SECRET_KEY: "sk_live_" + "a".repeat(24), RAM_STRIPE_WEBHOOK_SECRET: "whsec_" + "b".repeat(32), RAM_STRIPE_ALLOW_LIVE: "true"
+  };
+  const checks = evaluate(env);
+  assert.ok(checks.some((c) => c.id === "identity_oidc" && c.status === "PASS"));
+  assert.ok(checks.some((c) => c.id === "payment_stripe" && c.status === "PASS"));
+  assert.ok(!checks.some((c) => c.id.startsWith("identity_secret") || c.id.startsWith("payment_gateway")));
+  const testMode = evaluate({ ...env, RAM_STRIPE_SECRET_KEY: "sk_test_" + "a".repeat(24) });
+  assert.ok(testMode.some((c) => c.id === "payment_stripe" && c.status === "BLOCK"));
+});

@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { requireSession } from "@/lib/auth/session";
 import { listPaymentProfiles } from "@/lib/server/payment-profiles";
-import { paymentGatewayConfig } from "@/lib/payments/gateway";
+import { activePaymentRail } from "@/lib/payments/rail";
 
 export const dynamic = "force-dynamic";
 
 export default async function PaymentProfilesPage() {
   const session = await requireSession();
-  const gateway = paymentGatewayConfig();
+  const gateway = activePaymentRail();
   const { organizations, profiles } = await listPaymentProfiles(session);
 
   return (

@@ -2,6 +2,16 @@ import {
   monitoringConfig,
   strongMonitoringSecret
 } from "./monitoring/config";
+import { oidcConfig } from "./auth/oidc";
+import { stripeConfig } from "./payments/stripe";
+
+function configured<T>(read: () => T | null): boolean {
+  try {
+    return Boolean(read());
+  } catch {
+    return false;
+  }
+}
 
 export type ReadinessStatus = "PASS" | "BLOCK" | "MANUAL";
 
@@ -135,8 +145,19 @@ export function evaluatePilotReadiness(
     }
   ];
 
+  // A configured, valid OIDC relying party satisfies the identity checks.
+  const oidc = configured(() => oidcConfig(env));
+  const stripe = configured(() => stripeConfig(env));
   const identitySecret = env.RAM_IDENTITY_ASSERTION_SECRET;
-  checks.push({
+  if (oidc) {
+    checks.push({
+      id: "identity_oidc",
+      label: "Enterprise OIDC sign-in",
+      status: "PASS",
+      detail: "Standards-based OIDC (code + PKCE, signed ID token) is configured."
+    });
+  }
+  if (!oidc) checks.push({
     id: "identity_secret",
     label: "External identity assertion secret",
     status:
@@ -153,7 +174,7 @@ export function evaluatePilotReadiness(
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
-  checks.push({
+  if (!oidc) checks.push({
     id: "identity_providers",
     label: "Identity provider allowlist",
     status: providers.length > 0 ? "PASS" : "BLOCK",
@@ -163,7 +184,7 @@ export function evaluatePilotReadiness(
         : "Configure RAM_IDENTITY_ALLOWED_PROVIDERS."
   });
 
-  checks.push({
+  if (!oidc) checks.push({
     id: "identity_login_url",
     label: "Identity login URL",
     status: httpsUrl(env.RAM_IDENTITY_LOGIN_URL, true)
@@ -192,7 +213,18 @@ export function evaluatePilotReadiness(
     paymentSecret !== env.AUTH_SECRET &&
     paymentSecret !== env.RAM_IDENTITY_ASSERTION_SECRET;
 
-  checks.push({
+  if (stripe) {
+    const live = /^(sk|rk)_live_/.test(env.RAM_STRIPE_SECRET_KEY?.trim() ?? "");
+    checks.push({
+      id: "payment_stripe",
+      label: "Stripe payment adapter",
+      status: live ? "PASS" : "BLOCK",
+      detail: live
+        ? "Stripe live keys are configured with explicit owner approval (RAM_STRIPE_ALLOW_LIVE)."
+        : "Stripe is in test mode; a real pilot needs approved live keys."
+    });
+  }
+  if (!stripe) checks.push({
     id: "payment_secret",
     label: "Payment gateway signing secret",
     status: paymentSecretDistinct ? "PASS" : "BLOCK",
@@ -201,7 +233,7 @@ export function evaluatePilotReadiness(
       : "Configure RAM_PAYMENT_GATEWAY_SECRET with at least 32 non-placeholder characters and keep it distinct from AUTH_SECRET and RAM_IDENTITY_ASSERTION_SECRET."
   });
 
-  checks.push({
+  if (!stripe) checks.push({
     id: "payment_gateway_name",
     label: "Payment gateway identifier",
     status: paymentName ? "PASS" : "BLOCK",
@@ -210,7 +242,7 @@ export function evaluatePilotReadiness(
       : "Configure RAM_PAYMENT_GATEWAY_NAME."
   });
 
-  checks.push({
+  if (!stripe) checks.push({
     id: "payment_gateway_url",
     label: "Payment gateway HTTPS endpoint",
     status:
